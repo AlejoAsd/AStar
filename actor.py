@@ -16,17 +16,24 @@ COST = 0
 STATE = 1
 
 class State():
+	# SENSOR CONSTANTS
+	BUMPED = 0
+	POSITION_X = 1
+	POSITION_Y = 2
+
 	position = None
 	target = None
 	parent = None
+
 	cost = 0
+	path_cost = None
 
 	def __init__(self, position, target, cost=0, parent=None):
 		self.position = position
 		self.target = target
 		self.parent = parent
 
-		# F(n)
+		# G(n)
 		self.cost = cost
 
 	def __str__(self):
@@ -34,7 +41,6 @@ class State():
 
 	def __hash__(self):
 		return hash((self.position, self.target))
-		#return hash((hash(self.position), hash(self.target)))
 
 	def __eq__(self, other):
 		return isinstance(other, self.__class__) \
@@ -64,6 +70,12 @@ class Actor():
 	environment = None
 	heuristic = None
 
+	frontier = None
+	explored = None
+
+	c = 0
+	f = 0
+
 	actions = []
 
 	def __init__(self, position, environment):
@@ -91,9 +103,11 @@ class Actor():
 		self.frontier.clear()
 		self.explored.clear()
 		self.explored.add(self.state)
+		self.c = 0
+		self.f = 0
 
 	def frontier_order(self, state):
-		return -state.cost
+		return -state.path_cost
 
 	def act(self):
 		# Recalculate when bumping
@@ -112,17 +126,7 @@ class Actor():
 			# Think
 			result = self.think(self.state)
 
-			# Create chain of actions
-			if (result):
-				s = result.parent
-				
-				while s is not None:
-
-					self.actions.append(s)
-					s = s.parent
-
-				result = True
-
+		# If a route is already calculated, return next action
 		if (result):
 			return self.actions.pop()
 		else:
@@ -130,46 +134,69 @@ class Actor():
 			return None
 
 	def think(self, state):
-		if state.goal():
+		# Define the initial frontier
+		self.expand_frontier(state)
+
+		frontier_size = 1
+		while frontier_size:
+			self.c += 1
+
+			# Get lowest valued frontier state
+			state = self.frontier.pop()
+
+			# Check for goal
+			if state.goal(): 
+				self.recreate_actions(state)
+				return True
+
+			# Add current state to explored
+			self.explored.add(state.as_tuple())
+
+			# Expand frontier
+			self.expand_frontier(state)
+
+			frontier_size = len(self.frontier)
+
+			# DEBUG
+			"""s = ''
+			for i in self.frontier:
+				s += "{}:({},{}) ".format(i.cost, i.row(), i.column())
+			print s"""
+			# DEBUG
+		return False
+
+	def expand_frontier(self, state):
+		for row in (-1, 0, 1):
+			for col in (-1, 0, 1):
+				# Only allow adjacent non-diagonal moves
+				#if row != 0 and col != 0:
+				#	continue
+
+				# Get the new position
+				position = Position(state.row() + row, state.column() + col)
+
+				# Rule out invalid positions
+				if position.row() < 0 or position.column() < 0 or \
+				   position.row() >= self.environment.height or position.column() >= self.environment.width:
+					return
+
+				p = position.as_tuple()
+
+				# If not an obstacle and not explored, then add to frontier
+				if p not in self.environment.obstacles and p not in self.explored:
+					self.f += 1
+
+					# Create the new state
+					new_state = State(position, state.target, state.cost + 1, state)
+
+					# Update state path cost
+					new_state.path_cost = new_state.cost + self.heuristic(new_state)
+					
+
+					# Add to frontier
+					self.frontier.add(new_state)
+
+	def recreate_actions(self, state):
+		while state is not None:
 			self.actions.append(state)
-			return state
-
-		s = state.as_tuple()
-
-		# Add to current state to explored
-		self.explored.add(s)
-
-		# Expand frontier
-		self.expand_frontier(state, s[ROW] + 1, s[COLUMN])
-		self.expand_frontier(state, s[ROW] - 1, s[COLUMN])
-		self.expand_frontier(state, s[ROW], s[COLUMN] + 1)
-		self.expand_frontier(state, s[ROW], s[COLUMN] - 1)
-
-		# Keep thinking
-		try:
-			n = self.frontier.pop()
-			return self.think(n)
-		except:
-			return None
-
-	def expand_frontier(self, state, row, col):
-		# Get the new position
-		position = Position(row, col)
-		# Rule out invalid positions
-		if position.row() < 0 or position.column() < 0 or \
-		   position.row() >= self.environment.height or position.column() >= self.environment.width:
-			return
-
-		p = position.as_tuple()
-
-		# If not a wall and not explored, then add to frontier
-		if p not in self.environment.obstacles and p not in self.explored:
-			new_state = State(position, state.target, state.cost + 1, state)
-
-			# Calculate cost
-			cost = new_state.cost + 2 * self.heuristic(new_state)
-			print cost
-
-			# Add to frontier
-			self.frontier.add(new_state)
-			self.explored.add(new_state)
+			state = state.parent

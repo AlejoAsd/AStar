@@ -3,12 +3,13 @@ from position import Position
 from actor import Actor
 from time import sleep
 
-size = 10
-wall_chance = 6
-environment = Environment(size, size, wall_chance)
+size = 89
+obstacle_chance = 6
+environment = Environment(size, size, Environment.RANDOM, obstacle_chance)
 
-start = Position(size - 1, 0)
-end = Position(0, size - 1)
+start = Position(size - 2, 1)
+#end = Position(size / 2, size / 2)
+end = Position(1, size - 2)
 
 actor = Actor(start, environment)
 environment.actor_add(actor)
@@ -24,17 +25,17 @@ environment.actor_add(actor)
 	environment.obstacles[(i, 1)] = '#'
 environment.print_state()"""
 
-# All clear
-environment.obstacles = {}
+"""# All clear
+environment.obstacles = {}"""
 
-# Double walls
+"""# Double walls
 d = 3
 for i in xrange(d, size):
 	environment.obstacles[(5, i)] = '#'
 	environment.obstacles[(7, i - d)] = '#'
 # + Extra wall
 for i in xrange(0, 4):
-	environment.obstacles[(i, 6)] = '#'
+	environment.obstacles[(i, 6)] = '#'"""
 
 # Diagonal wall
 """d = 5
@@ -52,17 +53,20 @@ environment.obstacles[(8, 6)] = '#'"""
 actor.move(end)
 actor.act()
 
-for i in actor.actions:
-	print i.position.as_tuple()
+"""for i in actor.actions:
+	print i.position.as_tuple()"""
 
 environment.print_state()
 
-while actor.can_act():
-	sleep(0.25)
+"""while actor.can_act():
+	sleep(0.10)
 	a = actor.act()
 	actor.state = a
-	print '\n'*100
+	print '\n'*50
 	print a.as_tuple()
 	environment.print_state()
 	if not actor.can_act():
-		break
+		break"""
+
+print "Total states explored:{}".format(actor.c)
+print "Frontier states added:{}".format(actor.f)
